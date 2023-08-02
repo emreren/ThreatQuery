@@ -1,0 +1,42 @@
+# .gitignore
+
+# Python environment
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Python Virtual Environment
+venv/
+pyenv/
+.python-version
+
+# Poetry
+__pypackages__/
+poetry.lock
+__pypoetry__/
+
+# PostgreSQL
+*.sql
+
+# FastAPI
+__init__.py
+__pycache__/
+
+# .env file (contains sensitive information)
+.env
+
+# Editor-specific files
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Compiled files
+*.pyc
+
+# Dependency directories
+env/
+lib/
+libs/
