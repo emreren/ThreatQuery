@@ -1,8 +1,10 @@
+# threatquery/database/crud.py file
+
 from .models import IoC
 from sqlalchemy.orm import Session
 
+
 def save_ioc_to_database(db: Session, ioc_value: str, analysis_result: dict):
-    # Veritabanına yeni IoC nesnesini ekleyerek kaydet
     new_ioc = IoC(
         type=analysis_result.get("type"),
         value=ioc_value,
