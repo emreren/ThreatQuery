@@ -1,7 +1,8 @@
-# .gitignore
+# .gitignore file
 
 # Python environment
 __pycache__/
+__pypackages__/
 *.py[cod]
 *.pyo
 *.pyd
@@ -12,16 +13,11 @@ pyenv/
 .python-version
 
 # Poetry
-__pypackages__/
-poetry.lock
 __pypoetry__/
+poetry.lock
 
 # PostgreSQL
 *.sql
-
-# FastAPI
-__init__.py
-__pycache__/
 
 # .env file (contains sensitive information)
 .env
@@ -40,3 +36,5 @@ __pycache__/
 env/
 lib/
 libs/
+
+# Other
