@@ -13,6 +13,6 @@ class IoC(Base):
     type = Column(String, index=True)
     value = Column(String, index=True)
     geometric_location = Column(String)
-    malicious_control = Column(String)
-    blacklist = Column(String)
+    last_analysis_stats = Column(String)
     whois = Column(String)
+    safebrowsing = Column(String)

@@ -3,7 +3,7 @@
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from .models import Base
+from threatquery.database.models import Base
 from dotenv import load_dotenv
 
 load_dotenv()
