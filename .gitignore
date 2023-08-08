@@ -21,6 +21,8 @@ poetry.lock
 
 # .env file (contains sensitive information)
 .env
+.env.secret
+.env.shared
 
 # Editor-specific files
 .vscode/
