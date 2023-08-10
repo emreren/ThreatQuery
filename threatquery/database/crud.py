@@ -1,19 +1,18 @@
-# threatquery/database/crud.py file
+# threatquery/database/crud.py
 
-from threatquery.database.models import IoC
 from sqlalchemy.orm import Session
-
+from threatquery.database.models import IoC
 import json
 
-def save_ioc_to_database(db: Session, ioc_value: str, analysis_result: dict):
 
+def save_ioc_to_database(db: Session, ioc_value: str, ioc_type: str, result):
     new_ioc = IoC(
-        type=analysis_result.get("type"),
+        type=ioc_type,
         value=ioc_value,
-        geometric_location=analysis_result.get("geometric_location"),
-        last_analysis_stats=json.dumps(analysis_result.get("last_analysis_stats")),
-        whois=json.dumps(analysis_result.get("whois")),
-        safebrowsing=json.dumps(analysis_result.get("safebrowsing")),
+        whois=json.dumps(result.whois),
+        geo_location=json.dumps(result.geo_location),
+        malicious=json.dumps(result.malicious),
+        blacklist=json.dumps(result.blacklist),
     )
 
     db.add(new_ioc)
