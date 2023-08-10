@@ -1,10 +1,9 @@
-# threatquery/database/models.py file
+# threatquery/database/models.py
 
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
-
 
 class IoC(Base):
     __tablename__ = 'ioc'
@@ -12,7 +11,7 @@ class IoC(Base):
     id = Column(Integer, primary_key=True, index=True)
     type = Column(String, index=True)
     value = Column(String, index=True)
-    geometric_location = Column(String)
-    last_analysis_stats = Column(String)
-    whois = Column(String)
-    safebrowsing = Column(String)
+    whois = Column(String, index=True)
+    geo_location = Column(String, index=True)
+    malicious = Column(String, index=True)
+    blacklist = Column(String, index=True)

@@ -1,2 +1,0 @@
-# threatquery/api.py file
-
