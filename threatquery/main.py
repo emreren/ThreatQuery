@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 @app.get("/search/")
 async def search_ioc(ioc_value: str):
     logger.info(f"Received search request for {ioc_value}")
-    result = await IOCAnalyzer().analyze(ioc_value)
     ioc_type = determine_ioc_type(ioc_value)
+    result = await IOCAnalyzer().analyze(ioc_value, ioc_type)
     with SessionLocal() as db:
         try:
             save_ioc_to_database(db, ioc_value, ioc_type, result)
