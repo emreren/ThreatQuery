@@ -15,3 +15,8 @@ class IoC(Base):
     geo_location = Column(String, index=True)
     malicious = Column(String, index=True)
     blacklist = Column(String, index=True)
+    suspicious = Column(String, index=True)
+    threat_type = Column(String, index=True)
+    malware_family = Column(String, index=True)
+    first_seen = Column(String, index=True)
+    tags = Column(String, index=True)

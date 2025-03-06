@@ -11,11 +11,16 @@ logger = logging.getLogger(__name__)
 
 
 class AnalysisResult:
-    def __init__(self, whois, geo_location, malicious, blacklist):
+    def __init__(self, whois, geo_location, malicious, blacklist, suspicious=None, threat_type=None, malware_family=None, first_seen=None, tags=None):
         self.whois = whois
         self.geo_location = geo_location
         self.malicious = malicious
         self.blacklist = blacklist
+        self.suspicious = suspicious or "Unknown"
+        self.threat_type = threat_type or "Unknown"  
+        self.malware_family = malware_family or "Unknown"
+        self.first_seen = first_seen or "Unknown"
+        self.tags = tags or "Unknown"
 
 
 class VirusTotalAnalyzer:
@@ -34,12 +39,22 @@ class VirusTotalAnalyzer:
             geo_location = await self.get_geo_location(ioc_value, ioc_type)
             malicious = await self.check_malicious(ioc_value, ioc_type)
             blacklist = await self.check_blacklist(ioc_value, ioc_type)
+            suspicious = await self.check_suspicious(ioc_value, ioc_type)
+            threat_type = await self.get_threat_type(ioc_value, ioc_type)
+            malware_family = await self.get_malware_family(ioc_value, ioc_type)
+            first_seen = await self.get_first_seen(ioc_value, ioc_type)
+            tags = await self.get_tags(ioc_value, ioc_type)
 
             return AnalysisResult(
                 whois=whois,
                 geo_location=geo_location,
                 malicious=malicious,
                 blacklist=blacklist,
+                suspicious=suspicious,
+                threat_type=threat_type,
+                malware_family=malware_family,
+                first_seen=first_seen,
+                tags=tags
             )
         except Exception as e:
             logger.error(f"Error analyzing {ioc_value} with VirusTotal: {str(e)}")
@@ -235,4 +250,191 @@ class VirusTotalAnalyzer:
         except Exception as e:
             logger.error(f"Error checking blacklist status for {ioc_value}: {str(e)}")
             return "Unknown"
+            
+    async def check_suspicious(self, ioc_value, ioc_type):
+        try:
+            resource_path = self._get_resource_path(ioc_value, ioc_type)
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}{resource_path}",
+                    headers=self.headers
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if "data" in data and "attributes" in data["data"]:
+                        attrs = data["data"]["attributes"]
+                        
+                        # Check last_analysis_stats for suspicious counts
+                        if "last_analysis_stats" in attrs:
+                            stats = attrs["last_analysis_stats"]
+                            suspicious_count = stats.get("suspicious", 0)
+                            
+                            # Consider it suspicious if any engine reports it as suspicious
+                            if suspicious_count > 0:
+                                return "True"
+                            
+                            # Or if it has a borderline reputation score
+                            if "reputation" in attrs:
+                                rep = attrs["reputation"]
+                                if rep < 0 and rep > -20:  # Slightly negative but not strongly negative
+                                    return "True"
+                    
+                    return "False"
+                else:
+                    return "Unknown"
+        except Exception as e:
+            logger.error(f"Error checking suspicious status for {ioc_value}: {str(e)}")
+            return "Unknown"
+            
+    async def get_threat_type(self, ioc_value, ioc_type):
+        try:
+            resource_path = self._get_resource_path(ioc_value, ioc_type)
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}{resource_path}",
+                    headers=self.headers
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if "data" in data and "attributes" in data["data"]:
+                        attrs = data["data"]["attributes"]
+                        
+                        # Check for any threat categories
+                        if "categories" in attrs and attrs["categories"]:
+                            # Get the most common category
+                            categories = attrs["categories"].values()
+                            if categories:
+                                return next(iter(categories))  # Return the first category
+                                
+                        # Check for any popular threat labels
+                        if "popular_threat_classification" in attrs:
+                            pop_threat = attrs["popular_threat_classification"]
+                            if "suggested_threat_label" in pop_threat:
+                                return pop_threat["suggested_threat_label"]
+                                
+                        # Check crowdsourced context
+                        if "crowdsourced_context" in attrs and attrs["crowdsourced_context"]:
+                            for context in attrs["crowdsourced_context"]:
+                                if "details" in context:
+                                    return context["details"]
+                    
+                    return "Unknown"
+                else:
+                    return "Unknown"
+        except Exception as e:
+            logger.error(f"Error retrieving threat type for {ioc_value}: {str(e)}")
+            return "Unknown"
+            
+    async def get_malware_family(self, ioc_value, ioc_type):
+        try:
+            resource_path = self._get_resource_path(ioc_value, ioc_type)
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}{resource_path}",
+                    headers=self.headers
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if "data" in data and "attributes" in data["data"]:
+                        attrs = data["data"]["attributes"]
+                        
+                        # Check popular threat classification
+                        if "popular_threat_classification" in attrs:
+                            pop_threat = attrs["popular_threat_classification"]
+                            if "popular_threat_category" in pop_threat and pop_threat["popular_threat_category"]:
+                                for category in pop_threat["popular_threat_category"]:
+                                    if "value" in category:
+                                        return category["value"]
+                                        
+                            # Or check popular threat name
+                            if "popular_threat_name" in pop_threat and pop_threat["popular_threat_name"]:
+                                for name in pop_threat["popular_threat_name"]:
+                                    if "value" in name:
+                                        return name["value"]
+                    
+                    return "Unknown"
+                else:
+                    return "Unknown"
+        except Exception as e:
+            logger.error(f"Error retrieving malware family for {ioc_value}: {str(e)}")
+            return "Unknown"
+            
+    async def get_first_seen(self, ioc_value, ioc_type):
+        try:
+            resource_path = self._get_resource_path(ioc_value, ioc_type)
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}{resource_path}",
+                    headers=self.headers
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if "data" in data and "attributes" in data["data"]:
+                        attrs = data["data"]["attributes"]
+                        
+                        # Check first submission date
+                        if "first_submission_date" in attrs:
+                            return str(attrs["first_submission_date"])
+                            
+                        # Check creation date (if available)
+                        if "creation_date" in attrs:
+                            return str(attrs["creation_date"])
+                            
+                        # Check first seen date (if available)
+                        if "first_seen_in_the_wild" in attrs:
+                            return str(attrs["first_seen_in_the_wild"])
+                    
+                    return "Unknown"
+                else:
+                    return "Unknown"
+        except Exception as e:
+            logger.error(f"Error retrieving first seen date for {ioc_value}: {str(e)}")
+            return "Unknown"
+            
+    async def get_tags(self, ioc_value, ioc_type):
+        try:
+            resource_path = self._get_resource_path(ioc_value, ioc_type)
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}{resource_path}",
+                    headers=self.headers
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if "data" in data and "attributes" in data["data"]:
+                        attrs = data["data"]["attributes"]
+                        tags = []
+                        
+                        # Check for categories (often used as tags)
+                        if "categories" in attrs:
+                            tags.extend(attrs["categories"].values())
+                            
+                        # Check for tags field
+                        if "tags" in attrs:
+                            tags.extend(attrs["tags"])
+                            
+                        # Check for type tags
+                        if "type_tags" in attrs:
+                            tags.extend(attrs["type_tags"])
+                            
+                        # Return unique tags as JSON string
+                        if tags:
+                            return json.dumps(list(set(tags)))
+                    
+                    return "[]"
+                else:
+                    return "[]"
+        except Exception as e:
+            logger.error(f"Error retrieving tags for {ioc_value}: {str(e)}")
+            return "[]"
 
