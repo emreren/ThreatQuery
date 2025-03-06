@@ -14,6 +14,11 @@ class AnalysisResults:
         self.geo_location = {}
         self.malicious = {}
         self.blacklist = {}
+        self.suspicious = {}
+        self.threat_type = {}
+        self.malware_family = {}
+        self.first_seen = {}
+        self.tags = {}
 
 
 class IOCAnalyzer:
@@ -41,6 +46,21 @@ class IOCAnalyzer:
 
             if hasattr(result, 'blacklist'):
                 self.results.blacklist[analyzer.name] = result.blacklist
+                
+            if hasattr(result, 'suspicious'):
+                self.results.suspicious[analyzer.name] = result.suspicious
+                
+            if hasattr(result, 'threat_type'):
+                self.results.threat_type[analyzer.name] = result.threat_type
+                
+            if hasattr(result, 'malware_family'):
+                self.results.malware_family[analyzer.name] = result.malware_family
+                
+            if hasattr(result, 'first_seen'):
+                self.results.first_seen[analyzer.name] = result.first_seen
+                
+            if hasattr(result, 'tags'):
+                self.results.tags[analyzer.name] = result.tags
 
         return self.results
 
