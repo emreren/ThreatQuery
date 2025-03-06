@@ -26,9 +26,7 @@ class IOCAnalyzer:
             GoogleSBAnalyzer(),
         ]
 
-    async def analyze(self, ioc_value):
-        ioc_type = determine_ioc_type(ioc_value)
-
+    async def analyze(self, ioc_value, ioc_type):
         for analyzer in self.analyzers:
             result = await analyzer.analyze(ioc_value, ioc_type)
 
