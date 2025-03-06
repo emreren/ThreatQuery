@@ -19,10 +19,11 @@ poetry.lock
 # PostgreSQL
 *.sql
 
-# .env file (contains sensitive information)
-.env
-.env.secret
-.env.shared
+# Environment variables
+.env.secret    # Contains sensitive API keys and secrets
+.env.local     # Contains local development overrides
+.env.production # Contains production settings
+.env.staging   # Contains staging settings
 
 # Editor-specific files
 .vscode/
