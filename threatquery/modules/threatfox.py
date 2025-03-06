@@ -10,11 +10,16 @@ logger = logging.getLogger(__name__)
 
 
 class AnalysisResult:
-    def __init__(self, whois, geo_location, malicious, blacklist):
+    def __init__(self, whois, geo_location, malicious, blacklist, suspicious=None, threat_type=None, malware_family=None, first_seen=None, tags=None):
         self.whois = whois
         self.geo_location = geo_location
         self.malicious = malicious
         self.blacklist = blacklist
+        self.suspicious = suspicious or "Unknown"
+        self.threat_type = threat_type or "Unknown"  
+        self.malware_family = malware_family or "Unknown"
+        self.first_seen = first_seen or "Unknown"
+        self.tags = tags or "[]"
 
 
 class ThreatFoxAnalyzer:
@@ -33,12 +38,22 @@ class ThreatFoxAnalyzer:
             geo_location = await self.get_geo_location(ioc_value, ioc_type)
             malicious = await self.check_malicious(ioc_value, ioc_type)
             blacklist = await self.check_blacklist(ioc_value, ioc_type)
+            suspicious = await self.check_suspicious(ioc_value, ioc_type)
+            threat_type = await self.get_threat_type(ioc_value, ioc_type)
+            malware_family = await self.get_malware_family(ioc_value, ioc_type)
+            first_seen = await self.get_first_seen(ioc_value, ioc_type)
+            tags = await self.get_tags(ioc_value, ioc_type)
 
             return AnalysisResult(
                 whois=whois,
                 geo_location=geo_location,
                 malicious=malicious,
                 blacklist=blacklist,
+                suspicious=suspicious,
+                threat_type=threat_type,
+                malware_family=malware_family,
+                first_seen=first_seen,
+                tags=tags
             )
         except Exception as e:
             logger.error(f"Error analyzing {ioc_value} with ThreatFox: {str(e)}")
@@ -238,4 +253,267 @@ class ThreatFoxAnalyzer:
         except Exception as e:
             logger.error(f"Error checking blacklist status for {ioc_value}: {str(e)}")
             return "Unknown"
+    
+    async def check_suspicious(self, ioc_value, ioc_type):
+        """
+        ThreatFox doesn't directly distinguish between malicious and suspicious,
+        but we can implement a confidence-based approach
+        """
+        try:
+            threatfox_type = self._map_ioc_type(ioc_type)
+            if not threatfox_type:
+                return "Not applicable for this IOC type"
+            
+            # For URLs, use the domain
+            search_value = ioc_value
+            if ioc_type == "url":
+                domain = self._extract_domain_from_url(ioc_value)
+                if not domain:
+                    return "Could not extract domain from URL"
+                search_value = domain
+                threatfox_type = "domain"
+            
+            # Adjust hash type for file hashes
+            if ioc_type == "file_hash":
+                if len(ioc_value) == 32:
+                    threatfox_type = "md5"
+                elif len(ioc_value) == 40:
+                    threatfox_type = "sha1"
+                elif len(ioc_value) == 64:
+                    threatfox_type = "sha256"
+            
+            # Query ThreatFox API
+            data = {
+                "query": "search_ioc",
+                "search_term": search_value,
+                "days": 90
+            }
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    self.base_url,
+                    json=data,
+                    headers=self.headers
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    
+                    if result.get("query_status") == "ok" and "data" in result:
+                        ioc_data = result["data"]
+                        
+                        if ioc_data and len(ioc_data) > 0:
+                            # Check confidence level - if medium or low, consider it suspicious rather than confirmed
+                            confidence = ioc_data[0].get("confidence_level")
+                            if confidence and confidence in ["medium", "low"]:
+                                return "True"
+                            
+                    return "False"
+                else:
+                    logger.error(f"ThreatFox API error: {response.status_code}")
+                    return "Unknown"
+        except Exception as e:
+            logger.error(f"Error checking suspicious status for {ioc_value}: {str(e)}")
+            return "Unknown"
+            
+    async def get_threat_type(self, ioc_value, ioc_type):
+        """
+        Get threat type information from ThreatFox
+        """
+        try:
+            threatfox_type = self._map_ioc_type(ioc_type)
+            if not threatfox_type:
+                return "Not applicable for this IOC type"
+            
+            # For URLs, use the domain
+            search_value = ioc_value
+            if ioc_type == "url":
+                domain = self._extract_domain_from_url(ioc_value)
+                if not domain:
+                    return "Could not extract domain from URL"
+                search_value = domain
+                threatfox_type = "domain"
+            
+            # Query ThreatFox API
+            data = {
+                "query": "search_ioc",
+                "search_term": search_value,
+                "days": 90
+            }
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    self.base_url,
+                    json=data,
+                    headers=self.headers
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    
+                    if result.get("query_status") == "ok" and "data" in result:
+                        ioc_data = result["data"]
+                        
+                        if ioc_data and len(ioc_data) > 0:
+                            # ThreatFox provides a threat_type field
+                            return ioc_data[0].get("threat_type", "Unknown")
+                    
+                    return "Unknown"
+                else:
+                    logger.error(f"ThreatFox API error: {response.status_code}")
+                    return "Unknown"
+        except Exception as e:
+            logger.error(f"Error retrieving threat type for {ioc_value}: {str(e)}")
+            return "Unknown"
+            
+    async def get_malware_family(self, ioc_value, ioc_type):
+        """
+        Get malware family information from ThreatFox
+        """
+        try:
+            threatfox_type = self._map_ioc_type(ioc_type)
+            if not threatfox_type:
+                return "Not applicable for this IOC type"
+            
+            # For URLs, use the domain
+            search_value = ioc_value
+            if ioc_type == "url":
+                domain = self._extract_domain_from_url(ioc_value)
+                if not domain:
+                    return "Could not extract domain from URL"
+                search_value = domain
+                threatfox_type = "domain"
+            
+            # Query ThreatFox API
+            data = {
+                "query": "search_ioc",
+                "search_term": search_value,
+                "days": 90
+            }
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    self.base_url,
+                    json=data,
+                    headers=self.headers
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    
+                    if result.get("query_status") == "ok" and "data" in result:
+                        ioc_data = result["data"]
+                        
+                        if ioc_data and len(ioc_data) > 0:
+                            # ThreatFox provides a malware field
+                            return ioc_data[0].get("malware", "Unknown")
+                    
+                    return "Unknown"
+                else:
+                    logger.error(f"ThreatFox API error: {response.status_code}")
+                    return "Unknown"
+        except Exception as e:
+            logger.error(f"Error retrieving malware family for {ioc_value}: {str(e)}")
+            return "Unknown"
+            
+    async def get_first_seen(self, ioc_value, ioc_type):
+        """
+        Get first seen date information from ThreatFox
+        """
+        try:
+            threatfox_type = self._map_ioc_type(ioc_type)
+            if not threatfox_type:
+                return "Not applicable for this IOC type"
+            
+            # For URLs, use the domain
+            search_value = ioc_value
+            if ioc_type == "url":
+                domain = self._extract_domain_from_url(ioc_value)
+                if not domain:
+                    return "Could not extract domain from URL"
+                search_value = domain
+                threatfox_type = "domain"
+            
+            # Query ThreatFox API
+            data = {
+                "query": "search_ioc",
+                "search_term": search_value,
+                "days": 90
+            }
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    self.base_url,
+                    json=data,
+                    headers=self.headers
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    
+                    if result.get("query_status") == "ok" and "data" in result:
+                        ioc_data = result["data"]
+                        
+                        if ioc_data and len(ioc_data) > 0:
+                            # ThreatFox provides a first_seen field
+                            return ioc_data[0].get("first_seen", "Unknown")
+                    
+                    return "Unknown"
+                else:
+                    logger.error(f"ThreatFox API error: {response.status_code}")
+                    return "Unknown"
+        except Exception as e:
+            logger.error(f"Error retrieving first seen date for {ioc_value}: {str(e)}")
+            return "Unknown"
+            
+    async def get_tags(self, ioc_value, ioc_type):
+        """
+        Get tags information from ThreatFox
+        """
+        try:
+            threatfox_type = self._map_ioc_type(ioc_type)
+            if not threatfox_type:
+                return "[]"
+            
+            # For URLs, use the domain
+            search_value = ioc_value
+            if ioc_type == "url":
+                domain = self._extract_domain_from_url(ioc_value)
+                if not domain:
+                    return "[]"
+                search_value = domain
+                threatfox_type = "domain"
+            
+            # Query ThreatFox API
+            data = {
+                "query": "search_ioc",
+                "search_term": search_value,
+                "days": 90
+            }
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    self.base_url,
+                    json=data,
+                    headers=self.headers
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    
+                    if result.get("query_status") == "ok" and "data" in result:
+                        ioc_data = result["data"]
+                        
+                        if ioc_data and len(ioc_data) > 0:
+                            # ThreatFox provides a tags field
+                            tags = ioc_data[0].get("tags", [])
+                            return json.dumps(tags)
+                    
+                    return "[]"
+                else:
+                    logger.error(f"ThreatFox API error: {response.status_code}")
+                    return "[]"
+        except Exception as e:
+            logger.error(f"Error retrieving tags for {ioc_value}: {str(e)}")
+            return "[]"
 
