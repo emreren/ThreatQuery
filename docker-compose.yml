@@ -5,9 +5,9 @@ services:
     env_file:
       - .env
     volumes:
-      - .:/app
+      - .:/appt
     ports:
-      - "5432:5432"
+      - "5433:5432"
 
   api-app:
     build:
@@ -19,3 +19,5 @@ services:
       - .:/app
     ports:
       - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/threatquery
