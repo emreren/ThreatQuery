@@ -8,6 +8,9 @@ from threatquery.modules.googlesb import GoogleSBAnalyzer
 from threatquery.modules.ioc_type_identifier import determine_ioc_type
 
 
+ANALYZER_TYPES = {"ipv4": "ip", "ipv6": "ip", "hash": "file_hash"}
+
+
 class AnalysisResults:
     def __init__(self):
         self.whois = {}
@@ -32,8 +35,10 @@ class IOCAnalyzer:
         ]
 
     async def analyze(self, ioc_value, ioc_type):
+        # determine_ioc_type returns ipv4/ipv6/hash, the analyzers expect ip/file_hash
+        analyzer_type = ANALYZER_TYPES.get(ioc_type, ioc_type)
         for analyzer in self.analyzers:
-            result = await analyzer.analyze(ioc_value, ioc_type)
+            result = await analyzer.analyze(ioc_value, analyzer_type)
 
             if hasattr(result, 'whois'):
                 self.results.whois[analyzer.name] = result.whois

@@ -2,6 +2,7 @@
 
 import logging
 import httpx
+from threatquery.modules.http_cache import CachingClient
 import hashlib
 import json
 from urllib.parse import urlparse
@@ -26,6 +27,7 @@ class AnalysisResult:
 class VirusTotalAnalyzer:
     def __init__(self):
         self.name = "VirusTotal"
+        self._cache = {}  # one lookup asks the same endpoint for several fields
         self.api_key = VIRUSTOTAL_API_KEY
         self.base_url = "https://www.virustotal.com/api/v3/"
         self.headers = {
@@ -88,7 +90,7 @@ class VirusTotalAnalyzer:
             if ioc_type not in ["domain", "ip"]:
                 return "Not available for this IOC type"
                 
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 resource_path = self._get_resource_path(ioc_value, ioc_type)
                 response = await client.get(
                     f"{self.base_url}{resource_path}",
@@ -141,7 +143,7 @@ class VirusTotalAnalyzer:
                 domain = parsed_url.netloc
                 resource_path = f"domains/{domain}"
             
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.get(
                     f"{self.base_url}{resource_path}",
                     headers=self.headers
@@ -185,7 +187,7 @@ class VirusTotalAnalyzer:
         try:
             resource_path = self._get_resource_path(ioc_value, ioc_type)
             
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.get(
                     f"{self.base_url}{resource_path}",
                     headers=self.headers
@@ -219,7 +221,7 @@ class VirusTotalAnalyzer:
             # but might look at different attributes
             resource_path = self._get_resource_path(ioc_value, ioc_type)
             
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.get(
                     f"{self.base_url}{resource_path}",
                     headers=self.headers
@@ -255,7 +257,7 @@ class VirusTotalAnalyzer:
         try:
             resource_path = self._get_resource_path(ioc_value, ioc_type)
             
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.get(
                     f"{self.base_url}{resource_path}",
                     headers=self.headers
@@ -292,7 +294,7 @@ class VirusTotalAnalyzer:
         try:
             resource_path = self._get_resource_path(ioc_value, ioc_type)
             
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.get(
                     f"{self.base_url}{resource_path}",
                     headers=self.headers
@@ -333,7 +335,7 @@ class VirusTotalAnalyzer:
         try:
             resource_path = self._get_resource_path(ioc_value, ioc_type)
             
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.get(
                     f"{self.base_url}{resource_path}",
                     headers=self.headers
@@ -369,7 +371,7 @@ class VirusTotalAnalyzer:
         try:
             resource_path = self._get_resource_path(ioc_value, ioc_type)
             
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.get(
                     f"{self.base_url}{resource_path}",
                     headers=self.headers
@@ -403,7 +405,7 @@ class VirusTotalAnalyzer:
         try:
             resource_path = self._get_resource_path(ioc_value, ioc_type)
             
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.get(
                     f"{self.base_url}{resource_path}",
                     headers=self.headers

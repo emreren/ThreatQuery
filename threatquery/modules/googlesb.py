@@ -2,6 +2,7 @@
 
 import logging
 import httpx
+from threatquery.modules.http_cache import CachingClient
 import json
 from urllib.parse import urlparse
 from config.env_config import GOOGLESAFEBROWSING_API_KEY
@@ -20,6 +21,7 @@ class AnalysisResult:
 class GoogleSBAnalyzer:
     def __init__(self):
         self.name = "GoogleSB"
+        self._cache = {}  # one lookup asks the same endpoint for several fields
         self.api_key = GOOGLESAFEBROWSING_API_KEY
         self.base_url = "https://safebrowsing.googleapis.com/v4/threatMatches:find"
 
@@ -129,7 +131,7 @@ class GoogleSBAnalyzer:
             }
             
             # Make the API request
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.post(
                     f"{self.base_url}?key={self.api_key}",
                     json=data,

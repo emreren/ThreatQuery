@@ -5,7 +5,8 @@ RUN pip install poetry
 COPY . /app
 WORKDIR /app
 
-COPY pyproject.toml poetry.lock ./
+# poetry.lock is gitignored; the glob keeps the build working without it
+COPY pyproject.toml poetry.lock* ./
 RUN poetry config virtualenvs.create false && \
     poetry install --no-interaction --no-ansi --no-root
 

@@ -2,6 +2,7 @@
 
 import logging
 import httpx
+from threatquery.modules.http_cache import CachingClient
 import json
 from urllib.parse import urlparse
 from config.env_config import THREATFOX_API_KEY
@@ -25,10 +26,11 @@ class AnalysisResult:
 class ThreatFoxAnalyzer:
     def __init__(self):
         self.name = "ThreatFox"
+        self._cache = {}  # one lookup asks the same endpoint for several fields
         self.api_key = THREATFOX_API_KEY
         self.base_url = "https://threatfox-api.abuse.ch/api/v1/"
         self.headers = {
-            "API-KEY": self.api_key,
+            "Auth-Key": self.api_key,  # abuse.ch auth header (was API-KEY, which the API rejects with 401)
             "Content-Type": "application/json"
         }
 
@@ -122,7 +124,7 @@ class ThreatFoxAnalyzer:
                 "days": 90  # Look back 90 days
             }
             
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.post(
                     self.base_url,
                     json=data,
@@ -216,7 +218,7 @@ class ThreatFoxAnalyzer:
                 "days": 90  # Look back 90 days
             }
             
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.post(
                     self.base_url,
                     json=data,
@@ -289,7 +291,7 @@ class ThreatFoxAnalyzer:
                 "days": 90
             }
             
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.post(
                     self.base_url,
                     json=data,
@@ -341,7 +343,7 @@ class ThreatFoxAnalyzer:
                 "days": 90
             }
             
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.post(
                     self.base_url,
                     json=data,
@@ -391,7 +393,7 @@ class ThreatFoxAnalyzer:
                 "days": 90
             }
             
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.post(
                     self.base_url,
                     json=data,
@@ -441,7 +443,7 @@ class ThreatFoxAnalyzer:
                 "days": 90
             }
             
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.post(
                     self.base_url,
                     json=data,
@@ -491,7 +493,7 @@ class ThreatFoxAnalyzer:
                 "days": 90
             }
             
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.post(
                     self.base_url,
                     json=data,

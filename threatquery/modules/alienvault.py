@@ -2,6 +2,7 @@
 
 import logging
 import httpx
+from threatquery.modules.http_cache import CachingClient
 import json
 from urllib.parse import urlparse
 from config.env_config import ALIENVAULT_API_KEY
@@ -19,6 +20,7 @@ class AnalysisResult:
 class AlienVaultAnalyzer:
     def __init__(self):
         self.name = "AlienVault"
+        self._cache = {}  # one lookup asks the same endpoint for several fields
         self.api_key = ALIENVAULT_API_KEY
         self.base_url = "https://otx.alienvault.com/api/v1/"
         self.headers = {
@@ -52,7 +54,7 @@ class AlienVaultAnalyzer:
         elif ioc_type == "domain":
             return f"indicators/domain/{ioc_value}"
         elif ioc_type == "ip":
-            return f"indicators/IPv4/{ioc_value}"
+            return f"indicators/{'IPv6' if ':' in ioc_value else 'IPv4'}/{ioc_value}"
         elif ioc_type == "file_hash":
             # Detect hash type based on length
             if len(ioc_value) == 32:  # MD5
@@ -93,7 +95,7 @@ class AlienVaultAnalyzer:
             else:
                 return "Not available for this IOC type"
             
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.get(
                     f"{self.base_url}{indicator_path}",
                     headers=self.headers
@@ -132,7 +134,7 @@ class AlienVaultAnalyzer:
             # Add /general to get overall analysis
             general_path = f"{indicator_path}/general"
             
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.get(
                     f"{self.base_url}{general_path}",
                     headers=self.headers
@@ -141,6 +143,11 @@ class AlienVaultAnalyzer:
                 if response.status_code == 200:
                     data = response.json()
                     
+                    # Whitelisted or known false positive (example.com, 8.8.8.8): popular benign
+                    # indicators appear in many pulses as references, so pulses alone are not a verdict
+                    if data.get("validation"):
+                        return "False"
+
                     # Check for malicious indicators
                     if "pulse_info" in data:
                         pulse_count = data["pulse_info"].get("count", 0)
@@ -163,7 +170,7 @@ class AlienVaultAnalyzer:
             indicator_path = self._get_indicator_path(ioc_value, ioc_type)
             reputation_path = f"{indicator_path}/reputation"
             
-            async with httpx.AsyncClient() as client:
+            async with CachingClient(self._cache) as client:
                 response = await client.get(
                     f"{self.base_url}{reputation_path}",
                     headers=self.headers
