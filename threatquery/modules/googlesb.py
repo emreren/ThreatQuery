@@ -1,9 +1,7 @@
 # threatquery/modules/googlesb.py
 
 import logging
-import httpx
 from threatquery.modules.http_cache import CachingClient
-import json
 from urllib.parse import urlparse
 from config.env_config import GOOGLESAFEBROWSING_API_KEY
 
@@ -132,10 +130,11 @@ class GoogleSBAnalyzer:
             
             # Make the API request
             async with CachingClient(self._cache) as client:
+                # The key goes in a header: as ?key= in the URL, httpx wrote it to app.log
                 response = await client.post(
-                    f"{self.base_url}?key={self.api_key}",
+                    self.base_url,
                     json=data,
-                    headers={"Content-Type": "application/json"}
+                    headers={"Content-Type": "application/json", "X-Goog-Api-Key": self.api_key}
                 )
                 
                 if response.status_code == 200:

@@ -1,17 +1,19 @@
 # config/env_config.py
 """
 Configuration module for environment variables.
-Loads from .env and .env.secret files, with .env.secret taking precedence.
+Loads from .env and .env.secret files, with .env.secret taking precedence,
+and environment variables taking precedence over both.
 """
 
 import os
 from dotenv import dotenv_values
 
-# Load environment variables from .env and .env.secret files
-# Variables in .env.secret will override those with the same name in .env
+# Variables in .env.secret override those with the same name in .env, and environment variables
+# override both (Docker and production; .env.secret is not copied into the image)
 config = {
     **dotenv_values(".env"),
-    **dotenv_values(".env.secret")
+    **dotenv_values(".env.secret"),
+    **os.environ,
 }
 
 # API Keys for Threat Intelligence Services
@@ -30,13 +32,7 @@ DATABASE_URL = config.get('DATABASE_URL', '')
 # Application Settings
 DEBUG = config.get('DEBUG', 'False').lower() in ('true', '1', 't')
 LOG_LEVEL = config.get('LOG_LEVEL', 'INFO')
-
-# Allow environment variables to override config files
-# This is useful for Docker and production environments
-if os.environ.get('DATABASE_URL'):
-    DATABASE_URL = os.environ.get('DATABASE_URL')
-if os.environ.get('ELEVENLABS_API_KEY'):
-    ELEVENLABS_API_KEY = os.environ.get('ELEVENLABS_API_KEY')
+LOG_FILE = config.get('LOG_FILE', 'app.log')
 
 # Validate critical configuration
 if not DATABASE_URL:

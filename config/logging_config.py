@@ -1,5 +1,8 @@
 # config/logging_config.py file
 
+from config.env_config import LOG_FILE, LOG_LEVEL
+
+
 def get_logging_config():
     logging_config = {
         "version": 1,
@@ -17,13 +20,13 @@ def get_logging_config():
             },
             "file": {
                 "class": "logging.FileHandler",
-                "filename": "app.log",
+                "filename": LOG_FILE,
                 "formatter": "standard",
             },
         },
         "root": {
             "handlers": ["console", "file"],
-            "level": "INFO",
+            "level": LOG_LEVEL.upper(),
         },
     }
 
