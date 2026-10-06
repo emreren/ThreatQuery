@@ -1,13 +1,15 @@
 # threatquery/modules/threatfox.py
 
 import logging
-import httpx
 from threatquery.modules.http_cache import CachingClient
 import json
 from urllib.parse import urlparse
 from config.env_config import THREATFOX_API_KEY
 
 logger = logging.getLogger(__name__)
+
+# confidence_level below this (low < 50, medium 50-74) marks an IOC as suspicious rather than confirmed
+SUSPICIOUS_BELOW = 75
 
 
 class AnalysisResult:
@@ -305,9 +307,10 @@ class ThreatFoxAnalyzer:
                         ioc_data = result["data"]
                         
                         if ioc_data and len(ioc_data) > 0:
-                            # Check confidence level - if medium or low, consider it suspicious rather than confirmed
+                            # Check confidence level - if medium or low, consider it suspicious rather than confirmed.
+                            # ThreatFox gives a 0-100 number (it was compared with "medium"/"low", which never matched)
                             confidence = ioc_data[0].get("confidence_level")
-                            if confidence and confidence in ["medium", "low"]:
+                            if isinstance(confidence, (int, float)) and confidence < SUSPICIOUS_BELOW:
                                 return "True"
                             
                     return "False"

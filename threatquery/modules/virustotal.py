@@ -1,10 +1,10 @@
 # threatquery/modules/virustotal.py
 
 import logging
-import httpx
 from threatquery.modules.http_cache import CachingClient
 import hashlib
 import json
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 from config.env_config import VIRUSTOTAL_API_KEY
 
@@ -84,6 +84,13 @@ class VirusTotalAnalyzer:
     def _hash_url(self, url):
         """Hash a URL for VirusTotal API use"""
         return hashlib.sha256(url.encode()).hexdigest()
+
+    def _format_timestamp(self, value):
+        """1148301722 -> 2006-05-22 12:42:02 UTC"""
+        try:
+            return datetime.fromtimestamp(int(value), timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        except (TypeError, ValueError, OverflowError, OSError):
+            return str(value)
 
     async def get_whois_info(self, ioc_value, ioc_type):
         try:
@@ -318,11 +325,15 @@ class VirusTotalAnalyzer:
                             if "suggested_threat_label" in pop_threat:
                                 return pop_threat["suggested_threat_label"]
                                 
-                        # Check crowdsourced context
-                        if "crowdsourced_context" in attrs and attrs["crowdsourced_context"]:
+                        # Check crowdsourced context, only when engines flag the indicator: reports
+                        # mention clean indicators too (8.8.8.8 is "AsyncRAT botnet C2 server", and
+                        # example.com gets a paragraph saying it is a legitimate website)
+                        stats = attrs.get("last_analysis_stats", {})
+                        flagged = stats.get("malicious", 0) > 0 or stats.get("suspicious", 0) > 0
+                        if flagged and attrs.get("crowdsourced_context"):
                             for context in attrs["crowdsourced_context"]:
-                                if "details" in context:
-                                    return context["details"]
+                                if context.get("details"):
+                                    return context["details"].strip().splitlines()[0]
                     
                     return "Unknown"
                 else:
@@ -382,17 +393,14 @@ class VirusTotalAnalyzer:
                     if "data" in data and "attributes" in data["data"]:
                         attrs = data["data"]["attributes"]
                         
-                        # Check first submission date
-                        if "first_submission_date" in attrs:
-                            return str(attrs["first_submission_date"])
-                            
-                        # Check creation date (if available)
-                        if "creation_date" in attrs:
-                            return str(attrs["creation_date"])
-                            
-                        # Check first seen date (if available)
-                        if "first_seen_in_the_wild" in attrs:
-                            return str(attrs["first_seen_in_the_wild"])
+                        # VirusTotal gives Unix timestamps; they are returned in the format ThreatFox
+                        # uses, so both read the same and spoken briefings can say them as dates.
+                        # First submission for files and URLs, first seen for domains, creation date
+                        # (domain registration, file compile time) last
+                        for field in ("first_submission_date", "first_seen_date",
+                                      "first_seen_in_the_wild", "creation_date"):
+                            if attrs.get(field):
+                                return self._format_timestamp(attrs[field])
                     
                     return "Unknown"
                 else:

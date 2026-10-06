@@ -1,9 +1,7 @@
 # threatquery/modules/alienvault.py
 
 import logging
-import httpx
 from threatquery.modules.http_cache import CachingClient
-import json
 from urllib.parse import urlparse
 from config.env_config import ALIENVAULT_API_KEY
 
@@ -91,7 +89,7 @@ class AlienVaultAnalyzer:
             elif ioc_type == "domain":
                 indicator_path = f"indicators/domain/{ioc_value}/geo"
             elif ioc_type == "ip":
-                indicator_path = f"indicators/IPv4/{ioc_value}/geo"
+                indicator_path = f"{self._get_indicator_path(ioc_value, ioc_type)}/geo"
             else:
                 return "Not available for this IOC type"
             
@@ -163,37 +161,9 @@ class AlienVaultAnalyzer:
             return "Unknown"
 
     async def check_blacklist(self, ioc_value, ioc_type):
-        try:
-            # For AlienVault, we'll check reputation in addition to malicious status
-            # Reputation might come from different sources
-            
-            indicator_path = self._get_indicator_path(ioc_value, ioc_type)
-            reputation_path = f"{indicator_path}/reputation"
-            
-            async with CachingClient(self._cache) as client:
-                response = await client.get(
-                    f"{self.base_url}{reputation_path}",
-                    headers=self.headers
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    
-                    # Check reputation values
-                    if isinstance(data, dict) and "reputation" in data:
-                        if data["reputation"] < 0:  # Negative value indicates bad reputation
-                            return "True"
-                    
-                    # Also check if it appears in AlienVault blacklists
-                    malicious = await self.check_malicious(ioc_value, ioc_type)
-                    if malicious == "True":
-                        return "True"
-                    
-                    return "False"
-                else:
-                    return "Unknown"
-        except Exception as e:
-            logger.error(f"Error checking blacklist status for {ioc_value}: {str(e)}")
-            return "Unknown"
+        # OTX has a /reputation section only for IPs, and it answers {"reputation": null} for them
+        # (404 for domains, URLs and files). Comparing that null with 0 raised a TypeError, so the
+        # blacklist was "Unknown" for every indicator; pulses are the only signal OTX gives here.
+        return await self.check_malicious(ioc_value, ioc_type)
 
 
