@@ -28,7 +28,8 @@ WORDS = {
         "opening": "{kind}: {ioc}.",
         "hash_short": "{head} ile başlayan {length} karakterlik özet",
         "hits": "{total} kaynaktan {n} tanesi bu göstergeyi zararlı olarak işaretliyor: {sources}.",
-        "clean": "Sorgulanan kaynakların hiçbiri bu göstergeyi zararlı olarak işaretlemiyor.",
+        "clean": "Sonuç veren kaynakların hiçbiri bu göstergeyi zararlı olarak işaretlemiyor.",
+        "no_answer": "Hiçbir kaynaktan sonuç alınamadı.",
         "threat_type": "Tehdit türü: {v}.", "malware_family": "Zararlı yazılım ailesi: {v}.",
         "geo_location": "Konum: {v}.", "first_seen": "İlk görülme: {v}.",
         "silent": "{sources} bu gösterge için sonuç döndürmedi.",
@@ -45,7 +46,8 @@ WORDS = {
         "opening": "{kind}: {ioc}.",
         "hash_short": "{length}-character hash starting with {head}",
         "hits": "{n} of {total} sources flag this indicator as malicious: {sources}.",
-        "clean": "None of the sources flag this indicator as malicious.",
+        "clean": "None of the sources that answered flag this indicator as malicious.",
+        "no_answer": "No source returned a verdict for this indicator.",
         "threat_type": "Threat type: {v}.", "malware_family": "Malware family: {v}.",
         "geo_location": "Location: {v}.", "first_seen": "First seen: {v}.",
         "silent": "{sources} returned nothing for this indicator.",
@@ -98,10 +100,14 @@ def build_briefing(ioc_value, ioc_type, results, lang="tr", normalize=True):
     """
     words = WORDS[lang]
     fields = results if isinstance(results, dict) else vars(results)
-    sources = sorted({s for field in fields.values() if isinstance(field, dict) for s in field})
-    flagged = sorted({s for name in ("malicious", "blacklist")
-                      for s, v in (fields.get(name) or {}).items() if str(v).lower() == "true"})
-    answered = {s for field in fields.values() if isinstance(field, dict) for s, v in field.items() if _known(v)}
+    verdicts = {name: fields.get(name) or {} for name in ("malicious", "blacklist")}
+    # Sources that do not handle this indicator type (Safe Browsing for IPs and hashes) are left out
+    sources = sorted(s for s, v in verdicts["malicious"].items() if not str(v).lower().startswith("not "))
+    flagged = sorted({s for verdict in verdicts.values() for s, v in verdict.items()
+                      if s in sources and str(v).lower() == "true"})
+    # A source answered only if it gave a verdict; "Unknown", errors and filler text do not count
+    answered = {s for verdict in verdicts.values() for s, v in verdict.items()
+                if s in sources and str(v).lower() in ("true", "false")}
 
     spoken_ioc = ioc_value
     if normalize and ioc_type == "hash":
@@ -109,8 +115,10 @@ def build_briefing(ioc_value, ioc_type, results, lang="tr", normalize=True):
     parts = [words["opening"].format(kind=words["kind"].get(ioc_type, words["kind"]["unknown"]), ioc=spoken_ioc)]
     if flagged:
         parts.append(words["hits"].format(n=len(flagged), total=len(sources), sources=_join(flagged, words)))
-    else:
+    elif answered:
         parts.append(words["clean"])
+    else:
+        return " ".join(parts + [words["no_answer"]])
     for name in ("threat_type", "malware_family", "geo_location", "first_seen"):
         value = _first_known(fields, name)
         if value:
