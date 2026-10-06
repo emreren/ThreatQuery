@@ -2,7 +2,7 @@
 
 import logging
 from threatquery.modules.http_cache import CachingClient
-import hashlib
+import base64
 import json
 from datetime import datetime, timezone
 from urllib.parse import urlparse
@@ -71,7 +71,7 @@ class VirusTotalAnalyzer:
         """Determine the appropriate API resource path based on IOC type"""
         if ioc_type == "url":
             # URL needs to be properly identified
-            return f"urls/{self._hash_url(ioc_value)}"
+            return f"urls/{self._url_id(ioc_value)}"
         elif ioc_type == "domain":
             return f"domains/{ioc_value}"
         elif ioc_type == "ip":
@@ -81,9 +81,13 @@ class VirusTotalAnalyzer:
         else:
             raise ValueError(f"Unsupported IOC type: {ioc_type}")
 
-    def _hash_url(self, url):
-        """Hash a URL for VirusTotal API use"""
-        return hashlib.sha256(url.encode()).hexdigest()
+    def _url_id(self, url):
+        """
+        VirusTotal URL identifier: the URL in unpadded URL-safe base64. VirusTotal canonicalises it on
+        its side; the other accepted form, SHA-256 of the canonical URL, needs that done here, and
+        hashing the raw URL missed https://host (stored as https://host/), so flagged URLs were "Unknown".
+        """
+        return base64.urlsafe_b64encode(url.encode()).decode().rstrip("=")
 
     def _format_timestamp(self, value):
         """1148301722 -> 2006-05-22 12:42:02 UTC"""

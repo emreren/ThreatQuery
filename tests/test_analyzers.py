@@ -81,6 +81,16 @@ def test_virustotal_first_seen_is_a_utc_date(api):
     assert str(api["vt"].calls.last.request.url).endswith(f"/files/{HASH}")
 
 
+def test_virustotal_url_lookup_lets_virustotal_canonicalise_the_url(api):
+    # VirusTotal stores https://host as https://host/; the SHA-256 of the raw URL was a 404, so a URL
+    # 11 engines flag came back "Unknown"
+    results = analyze("https://google32.m4ntapaset.ink", "url")
+
+    assert results.malicious["VirusTotal"] == "True"
+    url_request = next(c.request for c in api["vt"].calls if "/urls/" in str(c.request.url))
+    assert str(url_request.url).endswith("/urls/aHR0cHM6Ly9nb29nbGUzMi5tNG50YXBhc2V0Lmluaw")
+
+
 def test_safe_browsing_key_is_sent_in_a_header(api):
     api["safe_browsing"].respond(json={"matches": [{"threatType": "MALWARE"}]})
     results = analyze("example.com", "domain")
