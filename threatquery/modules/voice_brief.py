@@ -18,7 +18,10 @@ TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
 TTS_MODEL = "eleven_multilingual_v2"
 SOURCE_NAMES = {"GoogleSB": "Google Safe Browsing"}
 # "False" is an answer (not malicious), not missing data
-NO_DATA = ("", "unknown", "none", "not available for this ioc type", "location information not found")
+NO_DATA = ("", "unknown", "none")
+# Analyzers fill fields they cannot answer with sentences ("Not applicable for this IOC type",
+# "Location data not provided by Google Safe Browsing"); a hash briefing said "Konum: Not applicable..."
+FILLER = re.compile(r"\bnot\b", re.IGNORECASE)
 
 WORDS = {
     "tr": {
@@ -67,7 +70,7 @@ class VoiceBriefError(Exception):
 
 def _known(value):
     text = str(value).strip() if value is not None else ""
-    return text.lower() not in NO_DATA and not text.startswith("Error")
+    return text.lower() not in NO_DATA and not text.startswith("Error") and not FILLER.search(text)
 
 
 def _join(sources, words):
