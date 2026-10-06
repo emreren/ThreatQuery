@@ -75,8 +75,10 @@ def _join(sources, words):
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + f" {words['and']} " + names[-1]
 
 
-def _first_known(fields, name):
-    for value in (fields.get(name) or {}).values():
+def _first_known(fields, name, only=None):
+    for source, value in (fields.get(name) or {}).items():
+        if only is not None and source not in only:
+            continue
         if _known(value) and str(value).lower() not in ("true", "false"):
             return str(value)
     return None
@@ -120,7 +122,10 @@ def build_briefing(ioc_value, ioc_type, results, lang="tr", normalize=True):
     else:
         return " ".join(parts + [words["no_answer"]])
     for name in ("threat_type", "malware_family", "geo_location", "first_seen"):
-        value = _first_known(fields, name)
+        # Threat type and family only from sources that flagged the indicator: VirusTotal's
+        # crowdsourced context names "AsyncRAT botnet C2" for 8.8.8.8, which every source calls clean
+        only = flagged if name in ("threat_type", "malware_family") else None
+        value = _first_known(fields, name, only)
         if value:
             if normalize:
                 value = words["terms"].get(value, value.replace("_", " "))
