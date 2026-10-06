@@ -5,19 +5,29 @@ services:
     env_file:
       - .env
     volumes:
-      - .:/appt
+      - pgdata:/var/lib/postgresql/data
     ports:
       - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
 
   api-app:
     build:
       context: .
       dockerfile: Dockerfile
     depends_on:
-      - db
+      # the app creates its tables on import, so it has to wait until Postgres accepts connections
+      db:
+        condition: service_healthy
     volumes:
       - .:/app
     ports:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/threatquery
+
+volumes:
+  pgdata:
