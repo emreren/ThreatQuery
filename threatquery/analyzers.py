@@ -1,14 +1,15 @@
 # threatquery/analyzers.py
 
-import logging
+import asyncio
 from threatquery.modules.alienvault import AlienVaultAnalyzer
 from threatquery.modules.virustotal import VirusTotalAnalyzer
 from threatquery.modules.threatfox import ThreatFoxAnalyzer
 from threatquery.modules.googlesb import GoogleSBAnalyzer
-from threatquery.modules.ioc_type_identifier import determine_ioc_type
 
 
 ANALYZER_TYPES = {"ipv4": "ip", "ipv6": "ip", "hash": "file_hash"}
+FIELDS = ("whois", "geo_location", "malicious", "blacklist", "suspicious",
+          "threat_type", "malware_family", "first_seen", "tags")
 
 
 class AnalysisResults:
@@ -37,38 +38,14 @@ class IOCAnalyzer:
     async def analyze(self, ioc_value, ioc_type):
         # determine_ioc_type returns ipv4/ipv6/hash, the analyzers expect ip/file_hash
         analyzer_type = ANALYZER_TYPES.get(ioc_type, ioc_type)
-        for analyzer in self.analyzers:
-            result = await analyzer.analyze(ioc_value, analyzer_type)
-
-            if hasattr(result, 'whois'):
-                self.results.whois[analyzer.name] = result.whois
-
-            if hasattr(result, 'geo_location'):
-                self.results.geo_location[analyzer.name] = result.geo_location
-
-            if hasattr(result, 'malicious'):
-                self.results.malicious[analyzer.name] = result.malicious
-
-            if hasattr(result, 'blacklist'):
-                self.results.blacklist[analyzer.name] = result.blacklist
-                
-            if hasattr(result, 'suspicious'):
-                self.results.suspicious[analyzer.name] = result.suspicious
-                
-            if hasattr(result, 'threat_type'):
-                self.results.threat_type[analyzer.name] = result.threat_type
-                
-            if hasattr(result, 'malware_family'):
-                self.results.malware_family[analyzer.name] = result.malware_family
-                
-            if hasattr(result, 'first_seen'):
-                self.results.first_seen[analyzer.name] = result.first_seen
-                
-            if hasattr(result, 'tags'):
-                self.results.tags[analyzer.name] = result.tags
+        # The sources are independent, so they are queried at the same time; each analyzer
+        # catches its own errors, and results keep the order of self.analyzers
+        results = await asyncio.gather(
+            *(analyzer.analyze(ioc_value, analyzer_type) for analyzer in self.analyzers)
+        )
+        for analyzer, result in zip(self.analyzers, results):
+            for field in FIELDS:
+                if hasattr(result, field):
+                    getattr(self.results, field)[analyzer.name] = getattr(result, field)
 
         return self.results
-
-
-
-
