@@ -19,11 +19,16 @@ poetry.lock
 # PostgreSQL
 *.sql
 
-# Environment variables
-.env.secret    # Contains sensitive API keys and secrets
-.env.local     # Contains local development overrides
-.env.production # Contains production settings
-.env.staging   # Contains staging settings
+# Environment variables (git has no inline comments: a "# ..." after the name made these patterns never match)
+# Contains sensitive API keys and secrets
+.env.secret
+# Local development overrides, production and staging settings
+.env.local
+.env.production
+.env.staging
+
+# Generated audio (spoken briefings)
+*.mp3
 
 # Editor-specific files
 .vscode/

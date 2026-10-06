@@ -9,6 +9,7 @@ ThreatQuery is a threat intelligence aggregation and analysis API that allows se
 - Threat score aggregation and analysis
 - RESTful API for easy integration with security tools
 - Comprehensive threat data enrichment
+- Spoken briefings in Turkish or English (ElevenLabs text-to-speech)
 
 ## Technology Stack
 
@@ -55,6 +56,27 @@ docker compose up -d
 ## API Documentation
 
 After starting the application, visit `http://localhost:8000/docs` for the Swagger UI documentation.
+
+## Spoken briefings
+
+`GET /brief/?ioc_value=<indicator>&lang=tr` runs the same analysis as `/search/` and returns a short
+spoken summary as MP3 (`lang=en` for English), generated with the ElevenLabs text-to-speech API
+(`eleven_multilingual_v2`). Add `ELEVENLABS_API_KEY` to `.env.secret` (or the environment);
+`ELEVENLABS_VOICE_ID` picks another voice.
+
+```bash
+curl -o brief.mp3 "http://localhost:8000/brief/?ioc_value=203.0.113.45&lang=tr"
+curl "http://localhost:8000/brief/?ioc_value=203.0.113.45&lang=en&text_only=true"
+```
+
+`text_only=true` returns only the text, `normalize=false` keeps the raw API values.
+
+Normalisation is deliberately narrow. Briefings were compared with raw values and with everything
+spelled out (IP addresses, timestamps, identifiers): IP addresses, `botnet_cc` and English names inside
+Turkish sentences (VirusTotal, Cobalt Strike, Netherlands) were read correctly as they were; the raw
+timestamp `2026-09-14 08:41:07 UTC` was the one thing read awkwardly in Turkish. So only timestamps and
+source identifiers are rewritten (`14 Eylül 2026`, `botnet komuta kontrol sunucusu`); hashes are
+shortened to their first 8 characters because a full SHA-256 takes too long to listen to.
 
 ## License
 

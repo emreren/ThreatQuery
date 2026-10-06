@@ -20,6 +20,10 @@ VIRUSTOTAL_API_KEY = config.get('VIRUSTOTAL_API_KEY', '')
 GOOGLESAFEBROWSING_API_KEY = config.get('GOOGLESAFEBROWSING_API_KEY', '')
 THREATFOX_API_KEY = config.get('THREATFOX_API_KEY', '')
 
+# Text-to-speech for spoken briefings (/brief/)
+ELEVENLABS_API_KEY = config.get('ELEVENLABS_API_KEY', '')
+ELEVENLABS_VOICE_ID = config.get('ELEVENLABS_VOICE_ID', 'JBFqnCBsd6RMkjVDRZzb')
+
 # Database Configuration
 DATABASE_URL = config.get('DATABASE_URL', '')
 
@@ -31,6 +35,8 @@ LOG_LEVEL = config.get('LOG_LEVEL', 'INFO')
 # This is useful for Docker and production environments
 if os.environ.get('DATABASE_URL'):
     DATABASE_URL = os.environ.get('DATABASE_URL')
+if os.environ.get('ELEVENLABS_API_KEY'):
+    ELEVENLABS_API_KEY = os.environ.get('ELEVENLABS_API_KEY')
 
 # Validate critical configuration
 if not DATABASE_URL:
