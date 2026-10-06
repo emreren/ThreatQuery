@@ -14,7 +14,14 @@ httpx = "^0.24.1"
 fastapi = {extras = ["all"], version = "^0.100.1"}
 sqlalchemy = "^2.0.19"
 python-dotenv = "^1.0.0"
-logging = "^0.4.9.6"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.1"
+respx = "^0.21.1"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
 
 
 [build-system]

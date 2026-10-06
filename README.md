@@ -34,11 +34,16 @@ ThreatQuery is a threat intelligence aggregation and analysis API that allows se
    ```
    Then edit `.env.secret` to add your actual API keys.
 
+Environment variables override both files. `LOG_LEVEL` and `LOG_FILE` (default `app.log`) set logging.
+
 ### Docker Installation (Recommended)
 
 ```bash
 docker compose up -d
 ```
+
+`.env.secret` is not copied into the image (see `.dockerignore`); Compose mounts the project
+directory, so the running container still reads it. Postgres data is kept in the `pgdata` volume.
 
 ### Manual Installation
 
@@ -56,6 +61,18 @@ docker compose up -d
 ## API Documentation
 
 After starting the application, visit `http://localhost:8000/docs` for the Swagger UI documentation.
+
+`GET /search/?ioc_value=<indicator>` accepts IPv4/IPv6 addresses, domains, URLs and MD5/SHA-1/SHA-256
+hashes; anything else gets a 400 response and is not sent to the sources.
+
+## Tests
+
+```bash
+poetry run pytest
+```
+
+The tests mock every external API and use a temporary SQLite database, so they need no API keys,
+no Postgres and no network.
 
 ## Spoken briefings
 

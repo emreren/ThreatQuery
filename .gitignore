@@ -46,3 +46,7 @@ lib/
 libs/
 
 # Other
+
+# Tests
+.venv/
+.pytest_cache/
